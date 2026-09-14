@@ -290,9 +290,7 @@ export interface Action {
 /** A complete rule definition */
 export interface Rule {
   id: string;
-  /** @gotags: yaml:"name" */
-  name: string;
-  description: string;
+  expr: string;
   /** @gotags: yaml:"condition" */
   condition?: Condition | undefined;
 }
@@ -351,7 +349,7 @@ export interface MatchedRules {
   names: string[];
 }
 
-export interface RuleBased {
+export interface RuleIngress {
   id: string;
   name: string;
   description: string;
@@ -363,12 +361,13 @@ export interface RuleBased {
   updatedAt?: Date | undefined;
 }
 
-export interface RuleBasedLite {
+export interface RuleIngressLite {
   id: string;
   name: string;
   description: string;
   expr?: ExpressionLite | undefined;
   action?: Action | undefined;
+  status: string;
 }
 
 function createBaseCondition(): Condition {
@@ -590,7 +589,7 @@ export const Action: MessageFns<Action> = {
 };
 
 function createBaseRule(): Rule {
-  return { id: "", name: "", description: "", condition: undefined };
+  return { id: "", expr: "", condition: undefined };
 }
 
 export const Rule: MessageFns<Rule> = {
@@ -598,14 +597,11 @@ export const Rule: MessageFns<Rule> = {
     if (message.id !== "") {
       writer.uint32(10).string(message.id);
     }
-    if (message.name !== "") {
-      writer.uint32(18).string(message.name);
-    }
-    if (message.description !== "") {
-      writer.uint32(26).string(message.description);
+    if (message.expr !== "") {
+      writer.uint32(18).string(message.expr);
     }
     if (message.condition !== undefined) {
-      Condition.encode(message.condition, writer.uint32(34).fork()).join();
+      Condition.encode(message.condition, writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -636,19 +632,11 @@ export const Rule: MessageFns<Rule> = {
               break;
             }
 
-            message.name = reader.string();
+            message.expr = reader.string();
             continue;
           }
           case 3: {
             if (tag !== 26) {
-              break;
-            }
-
-            message.description = reader.string();
-            continue;
-          }
-          case 4: {
-            if (tag !== 34) {
               break;
             }
 
@@ -670,8 +658,7 @@ export const Rule: MessageFns<Rule> = {
   fromJSON(object: any): Rule {
     return {
       id: isSet(object.id) ? globalThis.String(object.id) : "",
-      name: isSet(object.name) ? globalThis.String(object.name) : "",
-      description: isSet(object.description) ? globalThis.String(object.description) : "",
+      expr: isSet(object.expr) ? globalThis.String(object.expr) : "",
       condition: isSet(object.condition) ? Condition.fromJSON(object.condition) : undefined,
     };
   },
@@ -681,11 +668,8 @@ export const Rule: MessageFns<Rule> = {
     if (message.id !== "") {
       obj.id = message.id;
     }
-    if (message.name !== "") {
-      obj.name = message.name;
-    }
-    if (message.description !== "") {
-      obj.description = message.description;
+    if (message.expr !== "") {
+      obj.expr = message.expr;
     }
     if (message.condition !== undefined) {
       obj.condition = Condition.toJSON(message.condition);
@@ -699,8 +683,7 @@ export const Rule: MessageFns<Rule> = {
   fromPartial<I extends Exact<DeepPartial<Rule>, I>>(object: I): Rule {
     const message = createBaseRule();
     message.id = object.id ?? "";
-    message.name = object.name ?? "";
-    message.description = object.description ?? "";
+    message.expr = object.expr ?? "";
     message.condition = (object.condition !== undefined && object.condition !== null)
       ? Condition.fromPartial(object.condition)
       : undefined;
@@ -1353,7 +1336,7 @@ export const MatchedRules: MessageFns<MatchedRules> = {
   },
 };
 
-function createBaseRuleBased(): RuleBased {
+function createBaseRuleIngress(): RuleIngress {
   return {
     id: "",
     name: "",
@@ -1367,8 +1350,8 @@ function createBaseRuleBased(): RuleBased {
   };
 }
 
-export const RuleBased: MessageFns<RuleBased> = {
-  encode(message: RuleBased, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const RuleIngress: MessageFns<RuleIngress> = {
+  encode(message: RuleIngress, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.id !== "") {
       writer.uint32(10).string(message.id);
     }
@@ -1399,7 +1382,7 @@ export const RuleBased: MessageFns<RuleBased> = {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): RuleBased {
+  decode(input: BinaryReader | Uint8Array, length?: number): RuleIngress {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
     if (previousRecursionDepth >= 100) {
@@ -1408,7 +1391,7 @@ export const RuleBased: MessageFns<RuleBased> = {
     (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
     try {
       const end = length === undefined ? reader.len : reader.pos + length;
-      const message = createBaseRuleBased();
+      const message = createBaseRuleIngress();
       while (reader.pos < end) {
         const tag = reader.uint32();
         switch (tag >>> 3) {
@@ -1496,7 +1479,7 @@ export const RuleBased: MessageFns<RuleBased> = {
     }
   },
 
-  fromJSON(object: any): RuleBased {
+  fromJSON(object: any): RuleIngress {
     return {
       id: isSet(object.id) ? globalThis.String(object.id) : "",
       name: isSet(object.name) ? globalThis.String(object.name) : "",
@@ -1518,7 +1501,7 @@ export const RuleBased: MessageFns<RuleBased> = {
     };
   },
 
-  toJSON(message: RuleBased): unknown {
+  toJSON(message: RuleIngress): unknown {
     const obj: any = {};
     if (message.id !== "") {
       obj.id = message.id;
@@ -1550,11 +1533,11 @@ export const RuleBased: MessageFns<RuleBased> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<RuleBased>, I>>(base?: I): RuleBased {
-    return RuleBased.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<RuleIngress>, I>>(base?: I): RuleIngress {
+    return RuleIngress.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RuleBased>, I>>(object: I): RuleBased {
-    const message = createBaseRuleBased();
+  fromPartial<I extends Exact<DeepPartial<RuleIngress>, I>>(object: I): RuleIngress {
+    const message = createBaseRuleIngress();
     message.id = object.id ?? "";
     message.name = object.name ?? "";
     message.description = object.description ?? "";
@@ -1572,12 +1555,12 @@ export const RuleBased: MessageFns<RuleBased> = {
   },
 };
 
-function createBaseRuleBasedLite(): RuleBasedLite {
-  return { id: "", name: "", description: "", expr: undefined, action: undefined };
+function createBaseRuleIngressLite(): RuleIngressLite {
+  return { id: "", name: "", description: "", expr: undefined, action: undefined, status: "" };
 }
 
-export const RuleBasedLite: MessageFns<RuleBasedLite> = {
-  encode(message: RuleBasedLite, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const RuleIngressLite: MessageFns<RuleIngressLite> = {
+  encode(message: RuleIngressLite, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.id !== "") {
       writer.uint32(10).string(message.id);
     }
@@ -1593,10 +1576,13 @@ export const RuleBasedLite: MessageFns<RuleBasedLite> = {
     if (message.action !== undefined) {
       Action.encode(message.action, writer.uint32(42).fork()).join();
     }
+    if (message.status !== "") {
+      writer.uint32(50).string(message.status);
+    }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): RuleBasedLite {
+  decode(input: BinaryReader | Uint8Array, length?: number): RuleIngressLite {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const previousRecursionDepth = (reader as any).__tsProtoDecodeDepth ?? 0;
     if (previousRecursionDepth >= 100) {
@@ -1605,7 +1591,7 @@ export const RuleBasedLite: MessageFns<RuleBasedLite> = {
     (reader as any).__tsProtoDecodeDepth = previousRecursionDepth + 1;
     try {
       const end = length === undefined ? reader.len : reader.pos + length;
-      const message = createBaseRuleBasedLite();
+      const message = createBaseRuleIngressLite();
       while (reader.pos < end) {
         const tag = reader.uint32();
         switch (tag >>> 3) {
@@ -1649,6 +1635,14 @@ export const RuleBasedLite: MessageFns<RuleBasedLite> = {
             message.action = Action.decode(reader, reader.uint32());
             continue;
           }
+          case 6: {
+            if (tag !== 50) {
+              break;
+            }
+
+            message.status = reader.string();
+            continue;
+          }
         }
         if ((tag & 7) === 4 || tag === 0) {
           break;
@@ -1661,17 +1655,18 @@ export const RuleBasedLite: MessageFns<RuleBasedLite> = {
     }
   },
 
-  fromJSON(object: any): RuleBasedLite {
+  fromJSON(object: any): RuleIngressLite {
     return {
       id: isSet(object.id) ? globalThis.String(object.id) : "",
       name: isSet(object.name) ? globalThis.String(object.name) : "",
       description: isSet(object.description) ? globalThis.String(object.description) : "",
       expr: isSet(object.expr) ? ExpressionLite.fromJSON(object.expr) : undefined,
       action: isSet(object.action) ? Action.fromJSON(object.action) : undefined,
+      status: isSet(object.status) ? globalThis.String(object.status) : "",
     };
   },
 
-  toJSON(message: RuleBasedLite): unknown {
+  toJSON(message: RuleIngressLite): unknown {
     const obj: any = {};
     if (message.id !== "") {
       obj.id = message.id;
@@ -1688,14 +1683,17 @@ export const RuleBasedLite: MessageFns<RuleBasedLite> = {
     if (message.action !== undefined) {
       obj.action = Action.toJSON(message.action);
     }
+    if (message.status !== "") {
+      obj.status = message.status;
+    }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<RuleBasedLite>, I>>(base?: I): RuleBasedLite {
-    return RuleBasedLite.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<RuleIngressLite>, I>>(base?: I): RuleIngressLite {
+    return RuleIngressLite.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RuleBasedLite>, I>>(object: I): RuleBasedLite {
-    const message = createBaseRuleBasedLite();
+  fromPartial<I extends Exact<DeepPartial<RuleIngressLite>, I>>(object: I): RuleIngressLite {
+    const message = createBaseRuleIngressLite();
     message.id = object.id ?? "";
     message.name = object.name ?? "";
     message.description = object.description ?? "";
@@ -1705,6 +1703,7 @@ export const RuleBasedLite: MessageFns<RuleBasedLite> = {
     message.action = (object.action !== undefined && object.action !== null)
       ? Action.fromPartial(object.action)
       : undefined;
+    message.status = object.status ?? "";
     return message;
   },
 };

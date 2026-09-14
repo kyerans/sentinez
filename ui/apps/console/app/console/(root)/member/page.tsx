@@ -1,11 +1,19 @@
+import PageLayout from '@/components/page-layout';
+import Title from '@/components/title';
+import { Button } from '@sentinez/ui/components/button';
+import { PlusIcon } from 'lucide-react';
+
 export default async function Page() {
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await new Promise((resolve) => setTimeout(resolve, 1500));
 
   return (
-    <>
-      {Array.from({ length: 24 }).map((_, index) => (
-        <div key={index} className="bg-muted/50 aspect-video h-12 w-full rounded-lg" />
-      ))}
-    </>
+    <PageLayout>
+      <Title title="Members" subtitle="Manage members of the organization.">
+        <Button size="sm">
+          <PlusIcon className="w-4 h-4" />
+          Invite
+        </Button>
+      </Title>
+    </PageLayout>
   );
 }

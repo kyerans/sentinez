@@ -89,9 +89,8 @@ enum ActionType {
 // A complete rule definition
 message Rule {
   string id = 1;
-  string name = 2;  // @gotags: yaml:"name"
-  string description = 3;
-  Condition condition = 4;  // @gotags: yaml:"condition"
+  string expr = 2;
+  Condition condition = 3;  // @gotags: yaml:"condition"
 }
 
 message AndCondition {
@@ -138,7 +137,7 @@ message MatchedRules {
   repeated string names = 2;
 }
 
-message RuleBased {
+message RuleIngress {
   string id = 1;
   string name = 2;
   string description = 3;
@@ -151,11 +150,12 @@ message RuleBased {
   google.protobuf.Timestamp updated_at = 9;
 }
 
-message RuleBasedLite {
+message RuleIngressLite {
   string id = 1;
   string name = 2;
   string description = 3;
 
   ExpressionLite expr = 4;
   Action action = 5;
+  string status = 6;
 }

@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { NavUser } from '@/components/nav-user';
 import {
   Sidebar,
@@ -14,6 +13,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarTrigger,
   useSidebar,
 } from '@sentinez/ui/components/sidebar';
@@ -31,41 +33,74 @@ import {
 import { cn } from '@sentinez/ui/lib/utils';
 import Link from 'next/link';
 import PreviewHeader from './preview-header';
+import PreviewFooter from './preview-footer';
+import { ChevronRight, Search } from 'lucide-react';
+import SidebarLoading from './sidebar-loading';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@sentinez/ui/components/collapsible';
+import {
+  ComponentProps,
+  Fragment,
+  JSX,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from 'react';
 
-export function DomainSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function DomainSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
   // Note: I'm using state to show active item.
   // IRL you should use the url/router.
   const router = useRouter();
   const pathname = usePathname();
   const domain = pathname.split('/')[2];
 
-  const navMain = React.useMemo(() => {
+  const formatUrl = useCallback((url: string, d: string) => {
+    if (!d || !url) return url;
+    if (url.startsWith('/console/')) {
+      const parts = url.split('/');
+      if (parts[2] !== d) {
+        return `/console/${d}/${parts.slice(2).join('/')}`;
+      }
+    }
+    return url;
+  }, []);
+
+  const mapNavItems = useCallback(
+    (items: any[], d: string): any[] => {
+      if (!items) return items;
+      return items.map((item) => ({
+        ...item,
+        url: formatUrl(item.url, d),
+        items: item.items ? mapNavItems(item.items, d) : undefined,
+      }));
+    },
+    [formatUrl],
+  );
+
+  const navMain = useMemo(() => {
     if (!domain) return dashboard.domainNavMain;
-    return dashboard.domainNavMain.map((item: any) => ({
-      ...item,
-      url: item.url.startsWith('/console/')
-        ? item.url.replace('/console/', `/console/${domain}/`)
-        : item.url,
-      items: item.items?.map((subItem: any) => ({
-        ...subItem,
-        url: subItem.url.startsWith('/console/')
-          ? subItem.url.replace('/console/', `/console/${domain}/`)
-          : subItem.url,
-      })),
-    }));
-  }, [domain]);
+    return mapNavItems(dashboard.domainNavMain, domain);
+  }, [domain, mapNavItems]);
 
-  const [, startTransitionNavMain] = React.useTransition();
-  const [, startTransitionChildren] = React.useTransition();
+  const [, startTransitionNavMain] = useTransition();
+  const [, startTransitionChildren] = useTransition();
 
-  const [activeItem, setActiveItem] = React.useState(navMain[0]);
-  const [childItems, setChildItems] = React.useState(navMain[0]?.items);
-  const [navIndex, setNavIndex] = React.useState(0);
-  const [tabIndex, setTabIndex] = React.useState(-1);
-  const [search, setSearch] = React.useState('');
+  const [loading, setLoading] = useState(true);
+  const [activeItem, setActiveItem] = useState(navMain[0]);
+  const [childItems, setChildItems] = useState(navMain[0]?.items);
+  const [navIndex, setNavIndex] = useState(0);
+  const [tabIndex, setTabIndex] = useState(-1);
+  const [subTabIndex, setSubTabIndex] = useState(-1);
+  const [search, setSearch] = useState('');
   const { setOpen } = useSidebar();
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = setTimeout(() => {
       const originalItems = navMain[navIndex]?.items || [];
       if (search.trim() === '') {
@@ -81,7 +116,7 @@ export function DomainSidebar({ ...props }: React.ComponentProps<typeof Sidebar>
     return () => clearTimeout(handler); // cleanup
   }, [search, activeItem, navIndex]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     for (const [index, item] of navMain.entries()) {
       const matchedChild = item.items?.find((subItem: any) => pathname.startsWith(subItem.url));
       if (pathname.startsWith(item.url) || matchedChild) {
@@ -92,6 +127,20 @@ export function DomainSidebar({ ...props }: React.ComponentProps<typeof Sidebar>
         if (matchedChild) {
           const subIndex = item.items.findIndex((sub: any) => sub.url === matchedChild.url);
           setTabIndex(subIndex);
+
+          const matchedSubChild: any = matchedChild.items?.find((subSubItem: any) =>
+            pathname.startsWith(subSubItem.url),
+          );
+          if (matchedSubChild) {
+            const subSubIndex = matchedChild.items.findIndex(
+              (sub: any) => sub.url === matchedSubChild.url,
+            );
+            setSubTabIndex(subSubIndex);
+          } else {
+            setSubTabIndex(-1);
+          }
+
+          setLoading(false);
         }
 
         break;
@@ -119,6 +168,14 @@ export function DomainSidebar({ ...props }: React.ComponentProps<typeof Sidebar>
     });
   };
 
+  const handlerSidebarSubChildrenClick = (item: any, index: number) => {
+    router.push(item.url);
+
+    startTransitionChildren(() => {
+      setSubTabIndex(index);
+    });
+  };
+
   return (
     <Sidebar
       collapsible="icon"
@@ -135,7 +192,13 @@ export function DomainSidebar({ ...props }: React.ComponentProps<typeof Sidebar>
               <SidebarMenuButton size="lg" asChild className="md:h-8 md:p-0">
                 <Link href="/console">
                   <div className="text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                    <Image src="/assets/sntz.png" alt="logo" width={100} height={100} />
+                    <Image
+                      src="/assets/sntz.png"
+                      alt="logo"
+                      width={100}
+                      height={100}
+                      loading="eager"
+                    />
                   </div>
                 </Link>
               </SidebarMenuButton>
@@ -176,36 +239,88 @@ export function DomainSidebar({ ...props }: React.ComponentProps<typeof Sidebar>
       <Sidebar collapsible="none" className="hidden flex-1 md:flex">
         <SidebarHeader className="gap-3.5 border-b p-4">
           <TeamSwitcher teams={dashboard.tenant} />
-          <div className="flex w-full items-center justify-between">
+          {loading ? (
+            <SidebarLoading />
+          ) : (
             <div className="text-foreground text-base font-medium">{activeItem?.title}</div>
-          </div>
-          <SidebarInput
-            placeholder="type to search..."
-            onChange={(e) => {
-              setSearch(e.target.value);
-            }}
-          />
+          )}
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2" />
+
+                <SidebarInput
+                  placeholder="Search..."
+                  className="pl-8"
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                  }}
+                />
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup className="px-0">
             <SidebarGroupContent className="px-1.5 md:px-0 flex justify-center">
               <SidebarMenu className="w-11/12">
-                {childItems?.map((item: any, index: number) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      size="default"
-                      onClick={() => handlerSidebarChildrenClick(item, index)}
-                      className="px-2.5 md:px-2 cursor-pointer"
-                      isActive={tabIndex === index}
-                    >
-                      <div>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </div>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {loading ? (
+                  <SidebarLoading />
+                ) : (
+                  childItems?.map((item: any, index: number) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenu>
+                        <Collapsible
+                          key={item.title}
+                          asChild
+                          defaultOpen={item.isActive}
+                          className="group/collapsible"
+                        >
+                          <SidebarMenuItem>
+                            <CollapsibleTrigger asChild>
+                              <SidebarMenuButton
+                                tooltip={item.title}
+                                size="default"
+                                onClick={() => handlerSidebarChildrenClick(item, index)}
+                                className="px-2.5 md:px-2 cursor-pointer"
+                                isActive={tabIndex === index}
+                              >
+                                {item.icon && <item.icon />}
+                                <span>{item.title}</span>
+                                {item.items?.length > 0 && (
+                                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                                )}
+                              </SidebarMenuButton>
+                            </CollapsibleTrigger>
+                            {item.items?.length > 0 && (
+                              <CollapsibleContent>
+                                <SidebarMenuSub>
+                                  {item.items?.map((subItem: any, subIndex: number) => (
+                                    <SidebarMenuSubItem key={subItem.title}>
+                                      <SidebarMenuSubButton
+                                        asChild
+                                        isActive={subTabIndex === subIndex}
+                                        onClick={() =>
+                                          handlerSidebarSubChildrenClick(subItem, subIndex)
+                                        }
+                                        className="px-2.5 md:px-2 cursor-pointer"
+                                      >
+                                        <div>
+                                          {subItem.icon && <subItem.icon />}
+                                          <span>{subItem.title}</span>
+                                        </div>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  ))}
+                                </SidebarMenuSub>
+                              </CollapsibleContent>
+                            )}
+                          </SidebarMenuItem>
+                        </Collapsible>
+                      </SidebarMenu>
+                    </SidebarMenuItem>
+                  ))
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -215,11 +330,11 @@ export function DomainSidebar({ ...props }: React.ComponentProps<typeof Sidebar>
   );
 }
 
-export function DomainSidebarInset({ children }: { children: React.ReactNode }) {
-  const [breadcrumbs, setBreadcrumbs] = React.useState<React.JSX.Element[]>([]);
+export function DomainSidebarInset({ children }: { children: ReactNode }) {
+  const [breadcrumbs, setBreadcrumbs] = useState<JSX.Element[]>([]);
   const pathname = usePathname();
 
-  React.useEffect(() => {
+  useEffect(() => {
     const pathArray = pathname.split('/').filter((path) => path !== '');
     const components = pathArray.map((path, index) => {
       return (
@@ -242,19 +357,20 @@ export function DomainSidebarInset({ children }: { children: React.ReactNode }) 
 
   return (
     <SidebarInset>
-      <PreviewHeader />
-      <header className="bg-background sticky top-0 flex shrink-0 items-center gap-2 border-b p-4">
+      <PreviewHeader username={dashboard.user.name} />
+      <div className="bg-background sticky top-0 flex shrink-0 items-center gap-2 border-b p-2 z-2">
         <SidebarTrigger className="-ml-1 cursor-pointer" />
         <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
         <Breadcrumb>
           <BreadcrumbList>
             {breadcrumbs.map((item, index) => (
-              <React.Fragment key={index}>{item}</React.Fragment>
+              <Fragment key={index}>{item}</Fragment>
             ))}
           </BreadcrumbList>
         </Breadcrumb>
-      </header>
-      <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+      </div>
+      <div className="flex flex-1 flex-col gap-4 p-4 max-w-7xl">{children}</div>
+      <PreviewFooter />
     </SidebarInset>
   );
 }
